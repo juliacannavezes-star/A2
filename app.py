@@ -6,8 +6,8 @@ st.set_page_config(layout="wide", page_title="Perfil da Advocacia Brasileira")
 
 st.title("📊 Perfil da Advocacia Brasileira — Visualização Interativa")
 st.markdown("""
-Este aplicativo apresenta gráficos com base nos dados divulgados pela OAB sobre o perfil da advocacia brasileira.
-Você pode usar o arquivo padrão (`perfil_adv.csv`) ou enviar outro arquivo CSV/Excel no menu lateral.
+Este aplicativo apresenta gráficos com base nos dados divulgados pela OAB sobre o perfil da advocacia brasileira. E esses dados nos ajuda a contribuir para a formulação de políticas públicas e institucionais mais inclusivas e baseadas em evidências, já que conhecer o perfil atual da classe é essencial para reduzir desigualdades e promover a diversidade no meio jurídico.
+
 """)
 
 @st.cache_data
