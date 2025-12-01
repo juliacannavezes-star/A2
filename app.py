@@ -4,169 +4,121 @@ import plotly.express as px
 
 # ---------------- CONFIGURAÇÃO ---------------- #
 st.set_page_config(
-    layout="wide",
-    page_title="Perfil da Advocacia Brasileira"
+    page_title="Perfil da Advocacia Brasileira",
+    layout="wide"
 )
 
-# ---------------- TÍTULO E RESUMO ---------------- #
-st.title("📊 Perfil da Advocacia Brasileira — Análise Interativa")
-
+st.title("📊 Perfil da Advocacia Brasileira")
 st.markdown("""
-### 🧾 Resumo do Trabalho
+Análise interativa de dados públicos da **Ordem dos Advogados do Brasil (OAB)**,
+com foco em indicadores demográficos e profissionais.
 
-Este trabalho analisa dados públicos da Ordem dos Advogados do Brasil (OAB),
-com o objetivo de compreender o perfil da advocacia brasileira a partir de
-indicadores demográficos e profissionais.  
-
-A visualização desses dados permite identificar **desigualdades estruturais**,
-auxiliar a formulação de **políticas públicas institucionais**, e fomentar o
-debate sobre **diversidade no meio jurídico**.
-
-### 📌 Fonte dos Dados
-**Ordem dos Advogados do Brasil (OAB)** — levantamentos estatísticos institucionais.
+O objetivo é **compreender padrões**, **identificar desigualdades estruturais**
+e **estimular reflexão crítica** sobre a advocacia no Brasil.
 """)
 
-# ---------------- CARREGAMENTO DOS DADOS ---------------- #
+# ---------------- CARREGAMENTO ---------------- #
 @st.cache_data
-def load_data(file):
-    """
-    Função responsável por carregar os dados.
-    Aceita CSV ou Excel.
-    """
-    if file is None:
-        return pd.read_csv("perfil_adv.csv", sep=";")
-    else:
-        if file.name.endswith(".csv"):
-            try:
-                return pd.read_csv(file, sep=";")
-            except:
-                return pd.read_csv(file, sep=",")
-        return pd.read_excel(file)
+def load_data():
+    return pd.read_csv("perfil_adv.csv", sep=";")
 
-file = st.sidebar.file_uploader(
-    "📎 Enviar outro arquivo CSV ou Excel",
-    type=["csv", "xlsx", "xls"]
-)
+df = load_data()
 
-df = load_data(file)
+# ---------------- LIMPEZA ---------------- #
+df.columns = ["Indicador", "Categoria", "Valor"]
 
-# ---------------- LIMPEZA DOS DADOS ---------------- #
-indicadores_ocultos = [
-    "Média de idade",
-    "Tempo médio de atuação",
-    "media de idade",
-    "tempo medio de atuação"
-]
-
-df = df[~df["Indicador"].isin(indicadores_ocultos)]
-
-# ---------------- EXPLICAÇÃO DO TOTAL ---------------- #
-st.info("""
-ℹ️ **Sobre a coluna Total**  
-O campo **Total** representa o percentual consolidado do indicador.
-Ele não corresponde à soma das categorias, pois estas podem representar
-recortes distintos do universo pesquisado.
-""")
-
-# ---------------- FILTROS ---------------- #
-st.sidebar.markdown("## 🔍 Filtros")
-
-indicador = st.sidebar.selectbox(
-    "Indicador:",
-    sorted(df["Indicador"].unique())
-)
-
-categoria = st.sidebar.multiselect(
-    "Categoria:",
-    sorted(df["Categoria"].unique()),
-    default=sorted(df["Categoria"].unique())
-)
-
-df_sel = df[
-    (df["Indicador"] == indicador) &
-    (df["Categoria"].isin(categoria))
-].copy()
-
-# ---------------- CONVERSÃO DE VALORES ---------------- #
-def parse_value(x):
-    if pd.isna(x):
-        return None
-    s = str(x).replace("%", "").replace(",", ".").strip()
+def parse_percent(x):
     try:
-        return float(s)
+        return float(str(x).replace("%", "").replace(",", "."))
     except:
         return None
 
-for col in df_sel.columns:
-    if col not in ["Indicador", "Categoria"]:
-        df_sel[col] = df_sel[col].apply(parse_value)
+df["Valor"] = df["Valor"].apply(parse_percent)
 
-# ---------------- CRIAÇÃO DE NOVAS MÉTRICAS ---------------- #
-# Aumenta o volume informacional (critério dos 5x mais dados)
-df_sel["Média"] = df_sel.iloc[:, 2:].mean(axis=1)
-df_sel["Máximo"] = df_sel.iloc[:, 2:].max(axis=1)
-df_sel["Mínimo"] = df_sel.iloc[:, 2:].min(axis=1)
+df = df.dropna(subset=["Valor"])
 
-# ---------------- GRÁFICO 1: Barras ---------------- #
-st.header(f"📊 Indicador: {indicador}")
+# ---------------- FILTROS ---------------- #
+st.sidebar.header("🔎 Filtros")
 
-plot = df_sel.melt(
-    id_vars="Categoria",
-    value_vars=df_sel.columns[2:-3],
-    var_name="Grupo",
-    value_name="Percentual"
+indicador = st.sidebar.selectbox(
+    "Indicador",
+    sorted(df["Indicador"].unique())
 )
 
-fig1 = px.bar(
-    plot,
+df_ind = df[df["Indicador"] == indicador]
+
+categorias = sorted(df_ind["Categoria"].unique())
+
+categoria_sel = st.sidebar.multiselect(
+    "Categorias",
+    categorias,
+    default=categorias
+)
+
+df_filtrado = df_ind[df_ind["Categoria"].isin(categoria_sel)]
+
+# ---------------- SEPARAÇÃO DO TOTAL ---------------- #
+df_total = df_filtrado[df_filtrado["Categoria"].str.contains("Total", case=False)]
+df_cat = df_filtrado[~df_filtrado["Categoria"].str.contains("Total", case=False)]
+
+# ---------------- VISÃO GERAL ---------------- #
+st.subheader(f"📌 {indicador}")
+
+if not df_total.empty:
+    st.metric(
+        label="🔹 Percentual Total",
+        value=f"{df_total['Valor'].iloc[0]:.1f}%"
+    )
+
+# ---------------- GRÁFICO PRINCIPAL ---------------- #
+fig_bar = px.bar(
+    df_cat,
     x="Categoria",
-    y="Percentual",
-    color="Grupo",
-    barmode="group",
-    text="Percentual",
-    title="Distribuição por Categoria"
+    y="Valor",
+    text=df_cat["Valor"].map(lambda x: f"{x:.1f}%"),
+    title="Distribuição Percentual por Categoria",
+    labels={"Valor": "Percentual (%)"},
 )
 
-st.plotly_chart(fig1, use_container_width=True)
-
-# ---------------- GRÁFICO 2: Linha ---------------- #
-fig2 = px.line(
-    plot,
-    x="Categoria",
-    y="Percentual",
-    color="Grupo",
-    markers=True,
-    title="Evolução Comparativa"
+fig_bar.update_layout(
+    xaxis_tickangle=-30,
+    uniformtext_minsize=10,
+    uniformtext_mode='hide'
 )
 
-st.plotly_chart(fig2, use_container_width=True)
+st.plotly_chart(fig_bar, use_container_width=True)
 
-# ---------------- GRÁFICO 3: Boxplot ---------------- #
-fig3 = px.box(
-    plot,
-    x="Grupo",
-    y="Percentual",
-    title="Distribuição Estatística"
+# ---------------- ANÁLISE ESTATÍSTICA ---------------- #
+st.subheader("📈 Análise Estatística")
+
+col1, col2, col3 = st.columns(3)
+
+col1.metric("Média", f"{df_cat['Valor'].mean():.1f}%")
+col2.metric("Máximo", f"{df_cat['Valor'].max():.1f}%")
+col3.metric("Mínimo", f"{df_cat['Valor'].min():.1f}%")
+
+# ---------------- BOXPLOT ---------------- #
+fig_box = px.box(
+    df_cat,
+    y="Valor",
+    title="Distribuição Estatística das Categorias",
+    labels={"Valor": "Percentual (%)"}
 )
 
-st.plotly_chart(fig3, use_container_width=True)
+st.plotly_chart(fig_box, use_container_width=True)
 
 # ---------------- TABELA ---------------- #
-st.subheader("📄 Dados Utilizados")
-st.dataframe(df_sel)
+st.subheader("📄 Dados Filtrados")
+st.dataframe(df_cat.sort_values(by="Valor", ascending=False))
 
 # ---------------- DOWNLOAD ---------------- #
-csv = df_sel.to_csv(index=False, sep=";").encode("utf-8")
 st.download_button(
-    "⬇️ Baixar dados filtrados (CSV)",
-    csv,
+    "⬇️ Baixar CSV",
+    df_cat.to_csv(index=False, sep=";").encode("utf-8"),
     "dados_filtrados.csv",
     "text/csv"
 )
 
 # ---------------- RODAPÉ ---------------- #
 st.markdown("---")
-st.caption(
-    "Fonte: Ordem dos Advogados do Brasil (OAB) | "
-    "Aplicativo desenvolvido para fins acadêmicos."
-)
+st.caption("Fonte: Ordem dos Advogados do Brasil (OAB) | Projeto acadêmico de visualização de dados.")
