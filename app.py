@@ -1,17 +1,4 @@
-"""
-Aplicativo: Perfil da Advocacia Brasileira
-Autora: Julia Fleury Cannavezes
 
-Descrição:
-Este aplicativo realiza uma exploração interativa dos dados públicos
-divulgados pela Ordem dos Advogados do Brasil (OAB) sobre o perfil
-socioeconômico e demográfico da advocacia brasileira.
-
-Objetivo:
-Permitir a visualização, análise comparativa e reflexão crítica sobre
-temas como gênero, raça, faixa etária e área de atuação, contribuindo
-para debates sobre diversidade, inclusão e formulação de políticas públicas.
-"""
 
 import streamlit as st
 import pandas as pd
